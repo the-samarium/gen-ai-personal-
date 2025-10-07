@@ -54,7 +54,7 @@ pip install streamlit python-dotenv
 
 - Load your workflow `.json` file in the ComfyUI window.
 - This file defines the image generation workflow for ComfyUI.
-- You can modify the workflow in ComfyUI as needed.
+- You can modify the workflow in ComfyUI as needed.(After modification, download the workflow.json file and save it with the same name as the previous one. To download the .json file, enable the **Dev Mode** in Comfy-UI settings) 
 
 ### 5. Run the Streamlit App
 
@@ -103,5 +103,6 @@ streamlit run main.py
 - [Streamlit](https://streamlit.io/)
 
 ---
+
 
 
