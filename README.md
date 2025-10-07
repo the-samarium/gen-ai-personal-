@@ -49,6 +49,8 @@ pip install streamlit python-dotenv
 - Follow the [ComfyUI installation guide](https://github.com/comfyanonymous/ComfyUI#installation) to set up the backend.
 - For a video walkthrough, see [this tutorial](https://youtu.be/g74Cq9Ip2ik?si=BaPukdseq7u2UCra).
 - Start the ComfyUI server (default URL: `http://127.0.0.1:8188`).
+- Setup the Comfy UI manager, as we need it for downloading and managing models.
+- [Manager](https://github.com/Comfy-Org/ComfyUI-Manager.git)
 
 ### 4. Prepare Workflow File
 
@@ -103,6 +105,7 @@ streamlit run main.py
 - [Streamlit](https://streamlit.io/)
 
 ---
+
 
 
 
