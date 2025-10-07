@@ -104,5 +104,4 @@ streamlit run main.py
 
 ---
 
-**Enjoy generating creative images with your personal AI assistant!**
 
