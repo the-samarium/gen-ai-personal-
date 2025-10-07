@@ -23,7 +23,6 @@ A Streamlit-powered AI assistant for image generation using [ComfyUI](https://gi
   - Simple bot that echoes back user input.
 
 - **Conversational UI**
-  - Chat history is preserved during the session.
   - Images and messages are displayed in a conversational format.
 
 ---
@@ -106,3 +105,4 @@ streamlit run main.py
 ---
 
 **Enjoy generating creative images with your personal AI assistant!**
+
