@@ -5,6 +5,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import time
+import random
 from dotenv import load_dotenv
 
 
@@ -33,7 +34,6 @@ with st.sidebar:
     
     st.divider()
     
-    # Show relevant settings based on selected bot
     if selected_bot == "Gemini Bot":
         st.subheader("Gemini Bot Settings")
         has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
@@ -42,12 +42,31 @@ with st.sidebar:
             st.info("Add GEMINI_API_KEY to .env file")
             
     elif selected_bot == "Image Bot":
-        st.subheader("Image Bot Settings")
+        st.subheader("🖼️ Image Bot Settings")
         comfy_base_url = st.text_input(
             "ComfyUI URL", 
             value=os.getenv("COMFYUI_URL", "http://127.0.0.1:8188")
         )
-        
+
+        # 🔧 Added: Generation parameters
+        st.markdown("### Generation Parameters")
+        width = st.number_input("Width", 256, 2048, 512, step=64)
+        height = st.number_input("Height", 256, 2048, 512, step=64)
+        batch_size = st.number_input("Batch Size", 1, 8, 1)
+        steps = st.slider("Steps", 1, 50, 20)
+        cfg = st.slider("CFG Scale", 1.0, 20.0, 8.0)
+        randomize_seed = st.checkbox("Randomize Seed", True)
+        seed = random.randint(0, 2**63 - 1) if randomize_seed else st.number_input("Seed", 0, 999999999, 12345)
+
+        st.session_state["image_params"] = {
+            "width": width,
+            "height": height,
+            "batch_size": batch_size,
+            "steps": steps,
+            "cfg": cfg,
+            "seed": seed
+        }
+
         if st.button("Test ComfyUI"):
             try:
                 with urllib.request.urlopen(f"{comfy_base_url.rstrip('/')}/system_stats", timeout=5) as resp:
@@ -58,13 +77,12 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Cannot connect: {str(e)[:100]}")
     
-    else:  # Echo Bot
+    else:
         st.subheader("Echo Bot Settings")
         st.caption("No setup required - just start chatting!")
     
     st.divider()
     
-    # Clear chat
     if st.button("Clear Chat"):
         st.session_state["messages"] = []
         st.rerun()
@@ -76,86 +94,12 @@ if selected_bot == "Echo Bot":
 elif selected_bot == "Gemini Bot":
     st.title("Gemini Bot")
     st.caption("Ask me anything - I'm powered by Google's Gemini AI")
-else:  # Image Bot
+else:
     st.title("Image Bot")
     st.caption("Describe an image and I'll generate it for you!")
 
 # Helper functions
-def get_echo_response(user_message):
-    """Get response from Echo Bot - simply echoes the user's input"""
-    return f"You said: **{user_message}**"
-
-def get_image_bot_response(user_message):
-    """Get response from Image Bot - focuses on image generation"""
-    return f"I'll generate an image for you: **{user_message}**"
-
-def get_gemini_response(user_message):
-    """Get response from Gemini API"""
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return "⚠️ No Gemini API key found. Add GEMINI_API_KEY to .env file."
-    
-    try:
-        # Build conversation history
-        contents = []
-        for msg in st.session_state["messages"][-10:]:  # Last 10 messages
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
-        
-        # Add current message
-        contents.append({"role": "user", "parts": [{"text": user_message}]})
-        
-        # API request
-        payload = json.dumps({
-            "contents": contents,
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 1000,
-            }
-        }).encode("utf-8")
-        
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-        req = urllib.request.Request(
-            url=url,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            candidates = data.get("candidates", [])
-            
-            if not candidates:
-                return "⚠️ No response from Gemini."
-            
-            parts = (candidates[0].get("content") or {}).get("parts") or []
-            if not parts or not parts[0].get("text"):
-                return "⚠️ Empty response from Gemini."
-            
-            return parts[0]["text"].strip()
-            
-    except urllib.error.HTTPError as e:
-        if e.code == 400:
-            return "⚠️ Invalid request to Gemini API."
-        elif e.code == 403:
-            return "⚠️ Gemini API access denied. Check your API key."
-        else:
-            return f"⚠️ Gemini API error ({e.code})"
-    except Exception as e:
-        return f"⚠️ Failed to call Gemini API: {str(e)[:200]}"
-
-def should_generate_image(text):
-    """Check if user wants an image generated"""
-    keywords = [
-        'generate', 'create', 'make', 'draw', 'paint', 'show me', 'image of', 
-        'picture of', 'photo of', 'illustration of', 'artwork of', 'render',
-        'visualize', 'design', 'sketch', 'art', 'painting', 'drawing'
-    ]
-    return any(keyword in text.lower() for keyword in keywords)
-
 def load_workflow():
-    """Load ComfyUI workflow"""
     try:
         here = os.path.dirname(__file__)
         wf_path = os.path.join(here, "comfy_workflow.json")
@@ -166,27 +110,40 @@ def load_workflow():
         st.error(f"Error loading workflow: {e}")
     return None
 
-def inject_prompt(workflow, prompt):
-    """Inject prompt into workflow"""
+def inject_parameters(workflow, params):
+    """🔧 Inject parameters like width, height, batch_size, seed, cfg, steps into workflow"""
     nodes = workflow.get("prompt", workflow)
-    
+    for node_id, node in list(nodes.items()):
+        if not isinstance(node, dict):
+            continue
+        if node.get("class_type") == "EmptyLatentImage":
+            node["inputs"]["width"] = params["width"]
+            node["inputs"]["height"] = params["height"]
+            node["inputs"]["batch_size"] = params["batch_size"]
+        elif node.get("class_type") == "KSampler":
+            node["inputs"]["seed"] = params["seed"]
+            node["inputs"]["steps"] = params["steps"]
+            node["inputs"]["cfg"] = params["cfg"]
+    return workflow
+
+def inject_prompt(workflow, prompt):
+    nodes = workflow.get("prompt", workflow)
     for node_id, node in list(nodes.items()):
         if isinstance(node, dict) and node.get("class_type") == "CLIPTextEncode":
             if "inputs" in node:
                 node["inputs"]["text"] = prompt
-                return workflow
+    return workflow
 
-def generate_comfy_image(prompt, base_url):
-    """Generate image using ComfyUI"""
+def generate_comfy_image(prompt, base_url, params):
     workflow = load_workflow()
     if not workflow:
         return None, "No workflow file found"
-    
+
+    workflow = inject_parameters(workflow, params)
     workflow = inject_prompt(workflow, prompt)
     payload_prompt = workflow.get("prompt", workflow)
     
     try:
-        # Submit to ComfyUI
         data = json.dumps({"prompt": payload_prompt}).encode("utf-8")
         req = urllib.request.Request(
             url=f"{base_url.rstrip('/')}/prompt",
@@ -202,8 +159,8 @@ def generate_comfy_image(prompt, base_url):
         if not prompt_id:
             return None, "No prompt ID returned"
         
-        # Wait for completion
-        for _ in range(60):  # Wait up to 60 seconds
+        # Wait for generation
+        for _ in range(60):
             try:
                 with urllib.request.urlopen(f"{base_url.rstrip('/')}/history/{prompt_id}", timeout=10) as r:
                     hist = json.loads(r.read().decode("utf-8"))
@@ -249,23 +206,18 @@ if selected_bot == "Echo Bot":
     user_input = st.chat_input("Type something and I'll echo it back...")
 elif selected_bot == "Gemini Bot":
     user_input = st.chat_input("Ask me anything...")
-else:  # Image Bot
+else:
     user_input = st.chat_input("Describe an image you want me to generate...")
 
 # Process user input
 if user_input:
-    # Add user message
     st.session_state["messages"].append({"role": "user", "content": user_input})
-    
-    # Display user message
     with st.chat_message("user"):
         st.markdown(user_input)
     
-    # Generate response
     with st.chat_message("assistant"):
-        # Get response based on selected bot
         if selected_bot == "Echo Bot":
-            response = get_echo_response(user_input)
+            response = f"You said: **{user_input}**"
             st.markdown(response)
             assistant_msg = {"role": "assistant", "content": response}
             
@@ -274,14 +226,14 @@ if user_input:
             st.markdown(response)
             assistant_msg = {"role": "assistant", "content": response}
             
-        else:  # Image Bot
-            response = get_image_bot_response(user_input)
+        else:
+            response = f"I'll generate an image for you: **{user_input}**"
             st.markdown(response)
             assistant_msg = {"role": "assistant", "content": response}
             
-            # Always generate image for Image Bot
             st.write("Generating image...")
-            image_url, error = generate_comfy_image(user_input, comfy_base_url)
+            image_params = st.session_state.get("image_params", {})
+            image_url, error = generate_comfy_image(user_input, comfy_base_url, image_params)
             
             if image_url:
                 st.image(image_url, caption=user_input)
@@ -289,7 +241,6 @@ if user_input:
             else:
                 st.error(f"Image generation failed: {error}")
         
-        # Add assistant message
         st.session_state["messages"].append(assistant_msg)
 
 # Footer
@@ -298,5 +249,5 @@ if selected_bot == "Echo Bot":
     st.caption("💡 **Tip:** I'll echo back whatever you type!")
 elif selected_bot == "Gemini Bot":
     st.caption("💡 **Tip:** Ask me questions, request help, or have a conversation!")
-else:  # Image Bot
+else:
     st.caption("💡 **Tip:** Describe what you want to see - be creative and detailed!")

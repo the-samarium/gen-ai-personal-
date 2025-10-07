@@ -1,0 +1,77 @@
+{
+  "last_node_id": 9,
+  "last_link_id": 8,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadCheckpoint",
+      "pos": [50, 50],
+      "widgets_values": ["sdxl_base_1.0.safetensors"]
+    },
+    {
+      "id": 2,
+      "type": "CLIPTextEncode",
+      "pos": [50, 200],
+      "widgets_values": [
+        "a professional marketing photo of stylish running shoes on display, cinematic lighting, modern retail store background, ultra realistic, 8k, product photography"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [50, 350],
+      "widgets_values": [
+        "blurry, watermark, text, lowres, deformed, cropped, bad lighting, extra objects, low quality"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [400, 50],
+      "widgets_values": ["shoe_product.png"]
+    },
+    {
+      "id": 5,
+      "type": "LoadImageMask",
+      "pos": [400, 200],
+      "widgets_values": ["shoe_mask.png"]
+    },
+    {
+      "id": 6,
+      "type": "EmptyLatentImage",
+      "pos": [400, 350],
+      "widgets_values": [1024, 1024, 1]
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [700, 200],
+      "widgets_values": [12345, "randomize", 25, 7.5, "dpmpp_2m_sde", "karras", 0.7]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [950, 200],
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [1200, 200],
+      "widgets_values": ["output"]
+    }
+  ],
+  "links": [
+    [1, 0, 7, 0],
+    [2, 0, 7, 1],
+    [3, 0, 7, 2],
+    [4, 0, 7, 3],
+    [5, 0, 7, 4],
+    [6, 0, 7, 5],
+    [7, 0, 8, 0],
+    [8, 0, 9, 0]
+  ]
+}
+
+
+
